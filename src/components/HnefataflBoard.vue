@@ -1,7 +1,9 @@
 <template>
 <div>
     <div class="turn-counter">Turn {{Math.ceil((moves.length + 1)/2)}}</div>
-    <div class="moves-counter">{{moves.length}} moves made</div>
+    <div class="current-turn">
+        {{isAttackersTurn? 'Attacker' : 'Defender'}}'s turn
+    </div>
     <table class="board">
         <tr class="row" :id="'row:' + y" v-for="(row, y) in grid" :key="y">
             <td class="cell" :id="'cell:' + x" v-for="(cell, x) in row" :key="x"
@@ -31,6 +33,29 @@ function position(address) {
     let x = xFrom(address.charAt(0));
     let y = yFrom(address.substring(1));
     return {x, y};
+}
+
+function path(from, to) {
+    let dx = to.x - from.x;
+    let dy = to.y - from.y;
+
+    let xStep = clamp(-1, dx, 1);
+    let yStep = clamp(-1, dy, 1);
+
+
+    let steps = [];
+    let stepCount = Math.max(Math.abs(dx), Math.abs(dy))
+    for (let i = 1; i <= stepCount; i++) {
+        steps.push({
+            'x': from.x + i * xStep,
+            'y': from.y + i * yStep
+        });
+    }
+
+    return steps;
+}
+function clamp(min, value, max) {
+    return Math.max(min, Math.min(value, max));
 }
 
 function piecesArray(king, defenders, attackers) {
@@ -85,12 +110,15 @@ export default {
                ]
             )
         }
+    },
+    moves: {
+        type: Array,
+        default: function() { return []; }
     }
   },
   data: function() {
     return {
-        selected: undefined,
-        moves: []
+        selected: undefined
     }
   },
   computed: {
@@ -118,17 +146,26 @@ export default {
         }
 
         return grid;
+    },
+    isAttackersTurn: function() {
+        return this.moves.length % 2 == 0;
     }
   },
   methods: {
     handleClick: function(x,y) {
         let pos = {x,y};
-        if (!this.selected) {
-            this.select(pos);
-        }
-        else {
-            this.move(this.selected, pos);
+        let cell = this.cellAt(pos);
+
+        if (this.selected && this.move(this.selected, pos)) {
             this.deselect(this.selected);
+            return;
+        }
+
+        if (cell.piece) {
+            let isAttacker = cell.piece == 'attacker';
+            if (isAttacker == this.isAttackersTurn) {
+                this.select(pos);
+            }
         }
     },
     cellAt: function(pos) {
@@ -153,13 +190,12 @@ export default {
         return cell;
     },
     move: function(from, to) {
+        if (!this.isValidMove(from, to)) {
+            return false;
+        }
+
         let cellFrom = this.cellAt(from);
         let cellTo = this.cellAt(to);
-
-        if (cellTo.piece) {
-            // not allowed to go on top of another piece
-            return;
-        }
 
         let piece = cellFrom.piece;
         cellTo.piece = piece;
@@ -168,6 +204,27 @@ export default {
         this.moves.push({
             from, to, piece
         });
+        return true;
+    },
+    isValidMove: function(from, to) {
+        // only move in lines, not diagonally
+        if (from.x != to.x && from.y != to.y) {
+            return false;
+        }
+
+        // not allowed to go on top of another piece
+        if (this.cellAt(to).piece) {
+            return false;
+        }
+
+        // cannot jump over pieces
+        for (let p of path(from, to)) {
+            if (this.cellAt(p).piece) {
+                return false;
+            }
+        }
+
+        return true;
     },
     clearCell: function(x,y) {
         this.cellAt({x,y}).piece = undefined;
