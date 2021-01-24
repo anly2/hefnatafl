@@ -2,12 +2,12 @@
 <div>
     <div class="turn-counter">Turn {{Math.ceil((moves.length + 1)/2)}}</div>
     <div class="current-turn">
-        {{isAttackersTurn? 'Attacker' : 'Defender'}}'s turn
+        {{isAttackersTurn? '♜ Attacker' : '♔ Defender'}}'s turn
     </div>
     <table class="board">
         <tr class="row" :id="'row:' + y" v-for="(row, y) in grid" :key="y">
             <td class="cell" :id="'cell:' + x" v-for="(cell, x) in row" :key="x"
-                :class="{'restricted': cell.restricted, 'throne': cell.throne, 'selected': cell.selected}"
+                :class="{'restricted': cell.restricted, 'throne': cell.throne, 'selected': cell.selected, 'available': cell.available}"
                 @click.exact="handleClick(x, y)" @click.ctrl="clearCell(x, y)"
             >
                 <span class="piece piece-king" v-if="cell.piece == 'king'">♔</span>
@@ -127,7 +127,7 @@ export default {
         for (let y=0; y<this.size; y++) {
             let row = [];
             for (let x=0; x<this.size; x++) {
-                let cell = Vue.observable({'piece': undefined, 'selected': undefined});
+                let cell = Vue.observable({'piece': undefined, 'selected': undefined, 'available': undefined});
 
                 cell.restricted = (x == 0 || x == this.size-1) && (y == 0 || y == this.size-1);
                 if (x == Math.floor(this.size/2) && y == Math.floor(this.size/2)) {
@@ -149,6 +149,17 @@ export default {
     },
     isAttackersTurn: function() {
         return this.moves.length % 2 == 0;
+    },
+    availableMoves: function() {
+        let pos = this.selected;
+        if (!pos) return [];
+
+        return [
+            this.freePath(pos, {'x': 0, 'y': pos.y}),
+            this.freePath(pos, {'x': this.size - 1, 'y': pos.y}),
+            this.freePath(pos, {'x': pos.x, 'y': 0}),
+            this.freePath(pos, {'x': pos.x, 'y': this.size - 1})
+        ].flat();
     }
   },
   methods: {
@@ -171,6 +182,16 @@ export default {
     cellAt: function(pos) {
         return this.grid[pos.y][pos.x];
     },
+    freePath: function(from, to) {
+        let res = [];
+        for (let p of path(from, to)) {
+            if (this.cellAt(p).piece) {
+                break;
+            }
+            res.push(p);
+        }
+        return res;
+    },
     select: function(pos) {
         if (this.selected) {
             //clear previous selection
@@ -181,12 +202,26 @@ export default {
         cell.selected = true;
         this.selected = pos;
 
+        // Mark available
+        for (let dest of this.availableMoves) {
+            this.cellAt(dest).available = true;
+        }
+
         return cell;
     },
     deselect: function(pos) {
+        // Clear available markers
+        for (let row of this.grid) {
+            for (let cell of row) {
+                cell.available = undefined;
+            }
+        }
+
         let cell = this.cellAt(pos);
+
         cell.selected = false;
         this.selected = undefined;
+
         return cell;
     },
     move: function(from, to) {
@@ -262,6 +297,9 @@ table.board td {
 }
 .cell.restricted.selected {
     border-width: 3px;
+}
+.cell.available {
+    background-color: #d1e8d1;
 }
 
 .piece {
