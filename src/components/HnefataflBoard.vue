@@ -154,12 +154,18 @@ export default {
         let pos = this.selected;
         if (!pos) return [];
 
-        return [
+        let moves = [
             this.freePath(pos, {'x': 0, 'y': pos.y}),
             this.freePath(pos, {'x': this.size - 1, 'y': pos.y}),
             this.freePath(pos, {'x': pos.x, 'y': 0}),
             this.freePath(pos, {'x': pos.x, 'y': this.size - 1})
         ].flat();
+
+        if (this.cellAt(pos).piece != 'king') {
+            moves = moves.filter(p => !this.cellAt(p).restricted);
+        }
+
+        return moves;
     }
   },
   methods: {
@@ -247,8 +253,16 @@ export default {
             return false;
         }
 
+        let cellTo = this.cellAt(to);
+        let cellFrom = this.cellAt(from);
+
         // not allowed to go on top of another piece
-        if (this.cellAt(to).piece) {
+        if (cellTo.piece) {
+            return false;
+        }
+
+        // only the king is allowed on restricted spaces
+        if (cellTo.restricted && cellFrom.piece != 'king') {
             return false;
         }
 
