@@ -7,9 +7,11 @@
 <!--TODO: animate movements -->
 <!--TODO: animate "warning" for invalid actions -->
 <div class="game-area">
-    <div class="turn-counter">Turn {{Math.ceil((moves.length + 1)/2)}}</div>
-    <div class="current-turn">
-        {{isAttackersTurn? '♜ Attacker' : '♔ Defender'}}'s turn
+    <div class="header">
+        <div class="turn-counter">Turn {{Math.ceil((moves.length + 1)/2)}}</div>
+        <div class="current-turn">
+            {{isAttackersTurn? '♜ Attacker' : '♔ Defender'}}'s turn
+        </div>
     </div>
 
     <table class="board">
@@ -25,6 +27,7 @@
 
     <div class="cemetery" :class="['cemetery-' + side]" v-for="(pieces, side) in cemeteries" :key="'cemetery-' + side">
         <div class="title">Dead {{side}}</div>
+
         <piece v-for="piece in pieces" :key="piece.key" :piece="piece"/>
     </div>
 </div>
@@ -334,6 +337,20 @@ export default {
 </script>
 
 <style>
+
+.game-area {
+    display: grid;
+    grid:
+     "header header header" auto
+     "cemetery-attackers board cemetery-defenders" auto
+     / minmax(auto, 10em) auto minmax(auto, 10em);
+}
+.game-area > .header { grid-area: header; }
+.game-area > .board { grid-area: board; }
+.game-area > .cemetery-defenders { grid-area: cemetery-defenders; }
+.game-area > .cemetery-attackers { grid-area: cemetery-attackers; }
+
+
 .turn-counter {
     font-size: 2em;
 }
@@ -369,5 +386,16 @@ table.board td {
 
 .piece {
     font-size: 3em;
+}
+
+.cemetery {
+    display: flex;
+    flex-flow: row wrap;
+    align-content: start;
+}
+.cemetery .title {
+    font-weight: bold;
+    text-transform: lowercase;
+    font-variant: small-caps;
 }
 </style>
