@@ -6,28 +6,33 @@
 <!--TODO: implement bidding for start -->
 <!--TODO: animate movements -->
 <!--TODO: animate "warning" for invalid actions -->
-<div>
+<div class="game-area">
     <div class="turn-counter">Turn {{Math.ceil((moves.length + 1)/2)}}</div>
     <div class="current-turn">
         {{isAttackersTurn? '♜ Attacker' : '♔ Defender'}}'s turn
     </div>
+
     <table class="board">
         <tr class="row" :id="'row:' + y" v-for="(row, y) in grid" :key="y">
             <td class="cell" :id="'cell:' + x" v-for="(cell, x) in row" :key="x"
                 :class="{'restricted': cell.restricted, 'throne': cell.throne, 'selected': cell.selected, 'available': cell.available}"
                 @click.exact="handleClick(x, y)" @click.ctrl="clearCell(x, y)"
             >
-                <span class="piece piece-king" v-if="cell.piece == 'king'">♔</span>
-                <span class="piece piece-defender" v-if="cell.piece == 'defender'">♖</span>
-                <span class="piece piece-attacker" v-if="cell.piece == 'attacker'">♜</span>
+                <piece :piece="cell.piece"/>
             </td>
         </tr>
     </table>
+
+    <div class="cemetery" :class="['cemetery-' + side]" v-for="(pieces, side) in cemeteries" :key="'cemetery-' + side">
+        <div class="title">Dead {{side}}</div>
+        <piece v-for="piece in pieces" :key="piece.key" :piece="piece"/>
+    </div>
 </div>
 </template>
 
 <script>
 import Vue from 'vue';
+import Piece from './Piece.vue'
 
 function xFrom(letter) {
     return letter.toLowerCase().charCodeAt(0) - 97; //charCode('a') == 97
@@ -98,6 +103,7 @@ function piecesArray(king, defenders, attackers) {
 
 export default {
   name: 'HnefataflBoard',
+  components: {Piece},
   props: {
     size: {
         type: Number,
@@ -148,11 +154,32 @@ export default {
         }
 
         // Apply the pieces on the grid
-        for (let piece of this.pieces) {
-            grid[piece.position.y][piece.position.x].piece = piece.name;
+        for (let i=0; i<this.pieces.length; i++) {
+            let piece = this.pieces[i];
+            if (!piece.position) continue;
+            grid[piece.position.y][piece.position.x].piece = {
+                'name': piece.name,
+                'key': 'piece#' + i
+            };
         }
 
         return grid;
+    },
+    cemeteries: function() {
+        let defenders = [];
+        let attackers = [];
+
+        for (let i=0; i<this.pieces.length; i++) {
+            let piece = this.pieces[i];
+            if (piece.position) continue;
+
+            (piece.name == 'attacker' ? attackers : defenders).push({
+                'name': piece.name,
+                'key': 'piece#' + i
+            });
+        }
+
+        return {defenders, attackers};
     },
     isAttackersTurn: function() {
         return this.moves.length % 2 == 0;
@@ -168,7 +195,7 @@ export default {
             this.freePath(pos, {'x': pos.x, 'y': this.size - 1})
         ].flat();
 
-        if (this.cellAt(pos).piece != 'king') {
+        if (this.pieceNameAt(pos) != 'king') {
             moves = moves.filter(p => !this.cellAt(p).restricted);
         }
 
@@ -191,6 +218,10 @@ export default {
     cellAt: function(pos) {
         return this.grid[pos.y][pos.x];
     },
+    pieceNameAt: function(pos) {
+        let piece = this.cellAt(pos).piece;
+        return piece && piece.name;
+    },
     freePath: function(from, to) {
         let res = [];
         for (let p of path(from, to)) {
@@ -208,7 +239,7 @@ export default {
             return;
         }
 
-        let isAttacker = cell.piece == 'attacker';
+        let isAttacker = (cell.piece && cell.piece.name) == 'attacker';
         if (isAttacker != this.isAttackersTurn) {
             return;
         }
@@ -229,7 +260,7 @@ export default {
         return cell;
     },
     deselect: function(pos) {
-        // Clear available markers
+        // Clear 'available' markers
         for (let row of this.grid) {
             for (let cell of row) {
                 cell.available = undefined;
@@ -275,7 +306,7 @@ export default {
         }
 
         // only the king is allowed on restricted spaces
-        if (cellTo.restricted && cellFrom.piece != 'king') {
+        if (cellTo.restricted && (cellFrom.piece && cellFrom.piece.name) != 'king') {
             return false;
         }
 
@@ -289,7 +320,14 @@ export default {
         return true;
     },
     clearCell: function(x,y) {
-        this.cellAt({x,y}).piece = undefined;
+        let cell = this.cellAt({x,y});
+        let piece = cell.piece;
+        if (!piece) return;
+
+        let isAttacker = piece.name == 'attacker';
+        let cemetery = this.cemeteries[isAttacker? 'attackers' : 'defenders'];
+        cemetery.push(piece);
+        cell.piece = undefined;
     }
   }
 }
