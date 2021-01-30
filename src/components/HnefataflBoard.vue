@@ -1,4 +1,11 @@
 <template>
+<!--TODO: cemetery -->
+<!--TODO: undo turn -->
+<!--TODO: implement killing (automaticaly) -->
+<!--TODO: victory check -->
+<!--TODO: implement bidding for start -->
+<!--TODO: animate movements -->
+<!--TODO: animate "warning" for invalid actions -->
 <div>
     <div class="turn-counter">Turn {{Math.ceil((moves.length + 1)/2)}}</div>
     <div class="current-turn">
@@ -171,18 +178,14 @@ export default {
   methods: {
     handleClick: function(x,y) {
         let pos = {x,y};
-        let cell = this.cellAt(pos);
+
+        if (this.select(pos)) {
+            return;
+        }
 
         if (this.selected && this.move(this.selected, pos)) {
             this.deselect(this.selected);
             return;
-        }
-
-        if (cell.piece) {
-            let isAttacker = cell.piece == 'attacker';
-            if (isAttacker == this.isAttackersTurn) {
-                this.select(pos);
-            }
         }
     },
     cellAt: function(pos) {
@@ -199,12 +202,22 @@ export default {
         return res;
     },
     select: function(pos) {
+        let cell = this.cellAt(pos);
+
+        if (!cell.piece) {
+            return;
+        }
+
+        let isAttacker = cell.piece == 'attacker';
+        if (isAttacker != this.isAttackersTurn) {
+            return;
+        }
+
         if (this.selected) {
             //clear previous selection
             this.deselect(this.selected);
         }
 
-        let cell = this.cellAt(pos);
         cell.selected = true;
         this.selected = pos;
 
