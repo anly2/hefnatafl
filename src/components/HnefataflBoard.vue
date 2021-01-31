@@ -1,17 +1,20 @@
 <template>
-<!--TODO: cemetery -->
-<!--TODO: undo turn -->
-<!--TODO: implement killing (automaticaly) -->
 <!--TODO: victory check -->
+<!--TODO: implement killing (automaticaly) -->
 <!--TODO: implement bidding for start -->
 <!--TODO: animate movements -->
 <!--TODO: animate "warning" for invalid actions -->
 <div class="game-area">
     <div class="header">
-        <div class="turn-counter">Turn {{Math.ceil((moves.length + 1)/2)}}</div>
-        <div class="current-turn">
-            {{isAttackersTurn? '♜ Attacker' : '♔ Defender'}}'s turn
+        <div>
+            <div class="turn-counter">
+                Turn {{Math.ceil((moves.length + 1)/2)}}
+            </div>
+            <div class="current-turn">
+                {{isAttackersTurn? '♜ Attacker' : '♔ Defender'}}'s turn
+            </div>
         </div>
+        <button class="undo-turn" @click="undoLastMove()">⮐</button>
     </div>
 
     <table class="board">
@@ -331,6 +334,15 @@ export default {
         let cemetery = this.cemeteries[isAttacker? 'attackers' : 'defenders'];
         cemetery.push(piece);
         cell.piece = undefined;
+    },
+    undoLastMove: function() {
+        let lastMove = this.moves.pop();
+        if (!lastMove) return;
+
+        this.cellAt(lastMove.to).piece = undefined;
+        this.cellAt(lastMove.from).piece = lastMove.piece;
+
+        return lastMove;
     }
   }
 }
@@ -351,9 +363,22 @@ export default {
 .game-area > .cemetery-attackers { grid-area: cemetery-attackers; }
 
 
+.game-area > .header {
+    display: flex;
+    justify-content: center;
+}
 .turn-counter {
     font-size: 2em;
 }
+.undo-turn {
+    margin-right: -3em;
+    width: 3em;
+    height: 2em;
+    position: relative;
+    left: 1.5em;
+    top: 0.5em;
+}
+
 table.board {
     margin-top: 1em;
     margin-left: auto;
@@ -391,7 +416,7 @@ table.board td {
 .cemetery {
     display: flex;
     flex-flow: row wrap;
-    align-content: start;
+    align-content: flex-start;
 }
 .cemetery .title {
     font-weight: bold;
