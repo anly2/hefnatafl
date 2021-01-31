@@ -395,6 +395,8 @@ export default {
         let piece = cell.piece;
         if (!piece) return;
 
+        this.selected && this.deselect(this.selected);
+
         let isAttacker = piece.name == 'attacker';
         let cemetery = this.cemeteries[isAttacker? 'attackers' : 'defenders'];
         cemetery.push(piece);
