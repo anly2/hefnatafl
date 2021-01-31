@@ -1,20 +1,20 @@
 <template>
-<!--TODO: victory check -->
-<!--TODO: implement killing (automaticaly) -->
+<!--TODO: implement killing (automatically) -->
 <!--TODO: implement bidding for start -->
 <!--TODO: animate movements -->
 <!--TODO: animate "warning" for invalid actions -->
 <div class="game-area">
     <div class="header">
-        <div>
+        <div class="game-status" :class="{won: hasWon}">
             <div class="turn-counter">
                 Turn {{Math.ceil((moves.length + 1)/2)}}
             </div>
-            <div class="current-turn">
-                {{isAttackersTurn? '♜ Attacker' : '♔ Defender'}}'s turn
+            <div class="turn-status">
+                <span v-if="hasWon">{{moves.length % 2 == 0 ? '♔ Defender' : '♜ Attacker'}} won!</span>
+                <span v-else>{{isAttackersTurn? '♜ Attacker' : '♔ Defender'}}'s turn</span>
             </div>
         </div>
-        <button class="undo-turn" @click="undoLastMove()">⮐</button>
+        <button class="undo-turn" title="Undo last move" @click="undoLastMove()">⮐</button>
     </div>
 
     <table class="board">
@@ -206,6 +206,34 @@ export default {
         }
 
         return moves;
+    },
+    hasWon: function() {
+        let lastMove = this.moves[this.moves.length - 1];
+
+        if (!lastMove) {
+            return false;
+        }
+
+        // if king escaped
+        if (lastMove.piece.name == 'king') {
+            let cell = this.cellAt(lastMove.to);
+            if (cell.restricted && !cell.throne) {
+                return true;
+            }
+        }
+
+        // if king is captured
+        let adjacent = this.adjacentPositions(lastMove.to)
+        for (let p of adjacent) {
+            if (this.pieceNameAt(p) == 'king') {
+                if (this.checkKingCapture(p)) {
+                    return true;
+                }
+                break;
+            }
+        }
+
+        return false;
     }
   },
   methods: {
@@ -242,6 +270,10 @@ export default {
         let cell = this.cellAt(pos);
 
         if (!cell.piece) {
+            return;
+        }
+
+        if (this.hasWon) {
             return;
         }
 
@@ -295,6 +327,7 @@ export default {
         this.moves.push({
             from, to, piece
         });
+
         return true;
     },
     isValidMove: function(from, to) {
@@ -325,6 +358,38 @@ export default {
 
         return true;
     },
+    adjacentPositions: function(position) {
+        return [
+            {'x': position.x - 1, 'y': position.y},
+            {'x': position.x + 1, 'y': position.y},
+            {'x': position.x, 'y': position.y - 1},
+            {'x': position.x, 'y': position.y + 1}
+        ].filter(p => this.isValidPosition(p));
+    },
+    isValidPosition: function(position) {
+        return (position.x >= 0 && position.y >= 0 && position.x < this.size && position.y < this.size);
+    },
+    checkKingCapture: function(kingPosition) {
+        let adjacentOfKing = this.adjacentPositions(kingPosition);
+
+        // if king is at an edge
+        if (adjacentOfKing.length < 4) {
+            //if there are other defenders, the king cannot be captured at the edges
+            for (let row of this.grid) {
+                for (let cell of row) {
+                    if (cell.piece && cell.piece.name == 'defender') {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        if (adjacentOfKing.every(pp => this.pieceNameAt(pp) == 'attacker' || this.cellAt(pp).hostile)) {
+            return true;
+        }
+
+        return false;
+    },
     clearCell: function(x,y) {
         let cell = this.cellAt({x,y});
         let piece = cell.piece;
@@ -336,6 +401,8 @@ export default {
         cell.piece = undefined;
     },
     undoLastMove: function() {
+        this.selected && this.deselect(this.selected);
+
         let lastMove = this.moves.pop();
         if (!lastMove) return;
 
@@ -367,9 +434,11 @@ export default {
     display: flex;
     justify-content: center;
 }
-.turn-counter {
+.game-status:not(.won) .turn-counter,
+.game-status.won .turn-status {
     font-size: 2em;
 }
+
 .undo-turn {
     margin-right: -3em;
     width: 3em;
