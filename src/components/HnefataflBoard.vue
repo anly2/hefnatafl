@@ -250,7 +250,7 @@ export default {
         }
     },
     cellAt: function(pos) {
-        return this.grid[pos.y][pos.x];
+        return this.isValidPosition(pos) && this.grid[pos.y][pos.x];
     },
     pieceNameAt: function(pos) {
         let cell = this.cellAt(pos);
