@@ -1,5 +1,4 @@
 <template>
-<!--TODO: implement killing (automaticalliy) -->
 <!--TODO: implement bidding for start -->
 <!--TODO: animate movements -->
 <!--TODO: animate "kill" bloodshed -->
