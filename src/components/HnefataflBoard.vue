@@ -1,7 +1,8 @@
 <template>
-<!--TODO: implement killing (automatically) -->
+<!--TODO: implement killing (automaticalliy) -->
 <!--TODO: implement bidding for start -->
 <!--TODO: animate movements -->
+<!--TODO: animate "kill" bloodshed -->
 <!--TODO: animate "warning" for invalid actions -->
 <div class="game-area">
     <div class="header">
@@ -253,8 +254,8 @@ export default {
         return this.grid[pos.y][pos.x];
     },
     pieceNameAt: function(pos) {
-        let piece = this.cellAt(pos).piece;
-        return piece && piece.name;
+        let cell = this.cellAt(pos);
+        return cell && cell.piece && cell.piece.name;
     },
     freePath: function(from, to) {
         let res = [];
@@ -298,6 +299,8 @@ export default {
         return cell;
     },
     deselect: function(pos) {
+        if (!pos) return;
+
         // Clear 'available' markers
         for (let row of this.grid) {
             for (let cell of row) {
@@ -317,6 +320,7 @@ export default {
             return false;
         }
 
+        // Actually move the piece
         let cellFrom = this.cellAt(from);
         let cellTo = this.cellAt(to);
 
@@ -324,8 +328,14 @@ export default {
         cellTo.piece = piece;
         cellFrom.piece = undefined;
 
+        // Find captured pieces
+        let captured = this.getCapturedPieces(to);
+        for (let capturedPosition of captured) {
+            this.capture(capturedPosition);
+        }
+
         this.moves.push({
-            from, to, piece
+            from, to, piece, captured
         });
 
         return true;
@@ -369,6 +379,47 @@ export default {
     isValidPosition: function(position) {
         return (position.x >= 0 && position.y >= 0 && position.x < this.size && position.y < this.size);
     },
+    getCapturedPieces: function(aggressorPosition){
+        let result = [];
+        for (let adjacent of this.adjacentPositions(aggressorPosition)){
+            let nextOneOver = {
+                'x': aggressorPosition.x + 2 * clamp(-1, adjacent.x - aggressorPosition.x, 1),
+                'y': aggressorPosition.y + 2 * clamp(-1, adjacent.y - aggressorPosition.y, 1)
+            };
+            if (this.isHostile(adjacent, aggressorPosition) && this.isHostile(adjacent, nextOneOver)) {
+                result.push(adjacent);
+            }
+        }
+
+        return result;
+    },
+    isHostile: function(targetPosition, otherPosition) {
+        let target = this.pieceNameAt(targetPosition);
+        let other = this.pieceNameAt(otherPosition);
+
+        if (!target) {
+            return false;
+        }
+
+        if (target == 'king') return false;
+        if (other == 'king') other = 'defender';
+
+        let otherCell = this.cellAt(otherPosition);
+        if (!other && otherCell && otherCell.restricted) {
+            other = 'hostile';
+        }
+
+        return other && target != other;
+    },
+    capture: function(position) {
+        let cell = this.cellAt(position);
+        let piece = cell.piece;
+
+        let isAttacker = piece.name == 'attacker';
+        let cemetery = this.cemeteries[isAttacker? 'attackers' : 'defenders'];
+        cemetery.push(piece);
+        cell.piece = undefined;
+    },
     checkKingCapture: function(kingPosition) {
         let adjacentOfKing = this.adjacentPositions(kingPosition);
 
@@ -391,16 +442,9 @@ export default {
         return false;
     },
     clearCell: function(x,y) {
-        let cell = this.cellAt({x,y});
-        let piece = cell.piece;
-        if (!piece) return;
-
         this.selected && this.deselect(this.selected);
 
-        let isAttacker = piece.name == 'attacker';
-        let cemetery = this.cemeteries[isAttacker? 'attackers' : 'defenders'];
-        cemetery.push(piece);
-        cell.piece = undefined;
+        this.capture({x, y});
     },
     undoLastMove: function() {
         this.selected && this.deselect(this.selected);
