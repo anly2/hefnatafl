@@ -452,8 +452,16 @@ export default {
         let lastMove = this.moves.pop();
         if (!lastMove) return;
 
+        // move piece back
         this.cellAt(lastMove.to).piece = undefined;
         this.cellAt(lastMove.from).piece = lastMove.piece;
+
+        // restore the captured pieces
+        let wasAttacker = lastMove.piece.name == 'attacker';
+        let cemetery = this.cemeteries[wasAttacker ? 'defenders' : 'attackers'];
+        for (let position of (lastMove.captured || [])) {
+            this.cellAt(position).piece = cemetery.pop();
+        }
 
         return lastMove;
     }
