@@ -514,6 +514,9 @@ export default {
 .game-area > .cemetery-defenders { grid-area: cemetery-defenders; }
 .game-area > .cemetery-attackers { grid-area: cemetery-attackers; }
 
+.game-area .cemetery .title {
+  width: 100%;
+}
 
 .game-area > .header {
     display: flex;
