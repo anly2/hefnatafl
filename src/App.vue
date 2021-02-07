@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <Modal v-if="!biddingDone">
-      <BiddingPanel :players.sync="players"></BiddingPanel>
+      <BiddingPanel :players.sync="players" @confirm-bidding="biddingDone = true"></BiddingPanel>
     </Modal>
 
     <HnefataflBoard :players="players" />
@@ -20,13 +20,9 @@ export default {
   },
   data: function() {
     return {
-      players: undefined
+      players: undefined,
+      biddingDone: false
     }
-  },
-  computed: {
-      biddingDone: function () {
-          return !!this.players;
-      }
   }
 }
 </script>

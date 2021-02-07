@@ -146,8 +146,8 @@ export default {
       type: Object,
       default: function() {
         return {
-          attacker: {'name': 'Attacker', 'bid': 0},
-          defender: {'name': 'Defender', 'bid': 0}
+          attacker: {'name': 'Attacker', 'bid': undefined},
+          defender: {'name': 'Defender', 'bid': undefined}
         }
       }
     },
