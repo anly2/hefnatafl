@@ -1,16 +1,32 @@
 <template>
   <div id="app">
-    <HnefataflBoard />
+    <Modal v-if="!biddingDone">
+      <BiddingPanel :players.sync="players"></BiddingPanel>
+    </Modal>
+
+    <HnefataflBoard :players="players" />
   </div>
 </template>
 
 <script>
 import HnefataflBoard from './components/HnefataflBoard.vue'
+import Modal from './components/Modal.vue'
+import BiddingPanel from './components/BiddingPanel.vue'
 
 export default {
   name: 'app',
   components: {
-    HnefataflBoard
+    HnefataflBoard, Modal, BiddingPanel
+  },
+  data: function() {
+    return {
+      players: undefined
+    }
+  },
+  computed: {
+      biddingDone: function () {
+          return !!this.players;
+      }
   }
 }
 </script>

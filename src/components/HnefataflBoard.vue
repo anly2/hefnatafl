@@ -6,12 +6,24 @@
 <div class="game-area">
     <div class="header">
         <div class="game-status" :class="{won: hasWon}">
-            <div class="turn-counter">
-                Turn {{Math.ceil((moves.length + 1)/2)}}
+            <div class="turn-counter">Turn {{turnCount}}</div>
+            <div class="turns-remaining" v-if="players.defender.bid">
+              Defender has {{ (players.defender.bid + 1 - turnCount) || "no"}} more turns left ot escape
             </div>
-            <div class="turn-status">
-                <span v-if="hasWon">{{moves.length % 2 == 0 ? '♔ Defender' : '♜ Attacker'}} won!</span>
-                <span v-else>{{isAttackersTurn? '♜ Attacker' : '♔ Defender'}}'s turn</span>
+            <div class="win-status" v-if="hasWon">
+              <span v-if="defenderWon" class="victor victor-defender">
+                <span class="victor-icon">♔</span>
+                <span class="victor-name player-name">{{players.defender.name}}</span>
+              </span>
+              <span v-else class="victor victor-attacker">
+                <span class="victor-icon">♜</span>
+                <span class="victor-name player-name">{{players.attacker.name}}</span>
+              </span>
+              won!
+            </div>
+            <div class="turn-status" v-else>
+                {{isAttackersTurn? '♜ Attacker' : '♔ Defender'}}'s turn
+                <span class="player-name">{{isAttackersTurn? players.attacker.name : players.defender.name}}</span>
             </div>
         </div>
         <button class="undo-turn" title="Undo last move" @click="undoLastMove()">⮐</button>
@@ -130,6 +142,15 @@ export default {
             )
         }
     },
+    players: {
+      type: Object,
+      default: function() {
+        return {
+          attacker: {'name': 'Attacker', 'bid': 0},
+          defender: {'name': 'Defender', 'bid': 0}
+        }
+      }
+    },
     moves: {
         type: Array,
         default: function() { return []; }
@@ -170,6 +191,9 @@ export default {
         }
 
         return grid;
+    },
+    turnCount: function() {
+      return Math.ceil((this.moves.length + 1)/2)
     },
     cemeteries: function() {
         let defenders = [];
@@ -233,7 +257,15 @@ export default {
             }
         }
 
+        // if defender ran out of time
+        if (Math.floor(this.moves.length / 2) + 1 > this.players.defender.bid) {
+            return true;
+        }
+
         return false;
+    },
+    defenderWon: function() {
+      return (Math.floor(this.moves.length / 2) + 1 <= this.players.defender.bid) && (this.moves.length % 2 === 0);
     }
   },
   methods: {
@@ -488,8 +520,24 @@ export default {
     justify-content: center;
 }
 .game-status:not(.won) .turn-counter,
-.game-status.won .turn-status {
+.game-status.won .win-status {
     font-size: 2em;
+}
+
+.game-status .player-name {
+  font-weight: bold;
+}
+.game-status .win-status .player-name {
+  margin-left: 0.25em;
+}
+.game-status .turn-status .player-name {
+  margin-left: 0.5em;
+}
+.game-status .turn-status .player-name:before {
+  content: '('
+}
+.game-status .turn-status .player-name:after {
+  content: ')'
 }
 
 .undo-turn {
