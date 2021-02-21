@@ -29,9 +29,11 @@
         <button class="undo-turn" title="Undo last move" @click="undoLastMove()">⮐</button>
     </div>
 
-    <table class="board">
+    <table class="board"
+        @transitionend="clearFlashes($event.target)"
+    >
         <tr class="row" :id="'row:' + y" v-for="(row, y) in grid" :key="y">
-            <td class="cell" :id="'cell:' + x" v-for="(cell, x) in row" :key="x"
+            <td class="cell" :id="'cell:' + x + ',' + y" v-for="(cell, x) in row" :key="x"
                 :class="{'restricted': cell.restricted, 'throne': cell.throne, 'selected': cell.selected, 'available': cell.available}"
                 @click.exact="handleClick(x, y)" @click.ctrl="clearCell(x, y)"
             >
@@ -311,6 +313,8 @@ export default {
 
         let isAttacker = (cell.piece && cell.piece.name) == 'attacker';
         if (isAttacker != this.isAttackersTurn) {
+            let cellElement = this.$el.querySelector("[id='cell:" + pos.x + "," + pos.y + "']");
+            cellElement.classList.add("flash-red");
             return;
         }
 
@@ -345,6 +349,11 @@ export default {
         this.selected = undefined;
 
         return cell;
+    },
+    clearFlashes: function(cellElement) {
+      for (let c of cellElement.classList) {
+         if (c.startsWith("flash-")) cellElement.classList.remove(c);
+      }
     },
     move: function(from, to) {
         if (!this.isValidMove(from, to)) {
@@ -564,6 +573,7 @@ table.board td {
     height: 4em;
     border: 1px dotted gray;
     background-color: white;
+    transition: background-color 0.25s ease-in-out;
 }
 .cell.restricted {
     border: 3px dotted gray;
@@ -580,6 +590,9 @@ table.board td {
 }
 .cell.available {
     background-color: #d1e8d1;
+}
+.cell.flash-red {
+    background-color: red;
 }
 
 .piece {
