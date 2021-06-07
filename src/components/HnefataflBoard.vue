@@ -25,18 +25,7 @@
                 :class="{'restricted': cell.restricted, 'throne': cell.throne, 'selected': cell.selected, 'available': cell.available}"
                 @click.exact="handleClick(x, y)" @click.ctrl="clearCell(x, y)"
             >
-                <transition name="fade"
-                            v-on:before-enter="beforeEnter"
-                            v-on:enter="enter"
-                            v-on:after-enter="afterEnter"
-                            v-on:enter-cancelled="enterCancelled"
-
-                            v-on:before-leave="beforeLeave"
-                            v-on:leave="leave"
-                            v-on:after-leave="afterLeave"
-                            v-on:leave-cancelled="leaveCancelled">
                 <piece :piece="cell.piece"/>
-                </transition>
             </div>
         </template>
     </div>
@@ -380,30 +369,6 @@ export default {
 
         return true;
     },
-      "beforeEnter":function() {
-          console.log("hook beforeEnter", arguments);
-      },
-      "enter":function() {
-          console.log("hook enter", arguments);
-      },
-      "afterEnter":function() {
-          console.log("hook afterEnter", arguments);
-      },
-      "enterCancelled":function() {
-          console.log("hook enterCancelled", arguments);
-      },
-      "beforeLeave":function() {
-          console.log("hook beforeLeave", arguments);
-      },
-      "leave":function() {
-          console.log("hook leave", arguments);
-      },
-      "afterLeave":function() {
-          console.log("hook afterLeave", arguments);
-      },
-      "leaveCancelled":function() {
-          console.log("hook leaveCancelled", arguments);
-      },
     adjacentPositions: function(position) {
         return [
             {'x': position.x - 1, 'y': position.y},
@@ -606,8 +571,6 @@ table.board .cell.restricted.selected {
 }
 
 
-
-
 .piece {
     font-size: 3em;
 }
@@ -621,29 +584,5 @@ table.board .cell.restricted.selected {
     font-weight: bold;
     text-transform: lowercase;
     font-variant: small-caps;
-}
-
-
-.slide {
-    transition: all 1s;
-}
-.list-complete-item {
-    transition: all 1s;
-    display: inline-block;
-    margin-right: 10px;
-}
-
-.slide-enter-active, .slide-leave-active {
-    transition: all .5s;
-}
-.slide-move {
-    transition: all 1s;
-}
-
-.fade-enter-active, .fade-leave-active {
-    transition: opacity 1.5s;
-}
-.fade-enter, .fade-leave-to /* .fade-leave-active below version 2.1.8 */ {
-    opacity: 0;
 }
 </style>
