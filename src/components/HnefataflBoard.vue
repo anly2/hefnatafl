@@ -17,16 +17,29 @@
         <button class="undo-turn" title="Undo last move" @click="undoLastMove()">⮐</button>
     </div>
 
-    <table class="board">
-        <tr class="row" :id="'row:' + y" v-for="(row, y) in grid" :key="y">
-            <td class="cell" :id="'cell:' + x" v-for="(cell, x) in row" :key="x"
+    <div class="board" :style="{'--size': size}">
+
+        <template v-for="(row, y) in grid">
+            <div v-for="(cell, x) in row" :key="x + ','+  y"
+                :id="'cell:' + x + ',' + y" class="cell"
                 :class="{'restricted': cell.restricted, 'throne': cell.throne, 'selected': cell.selected, 'available': cell.available}"
                 @click.exact="handleClick(x, y)" @click.ctrl="clearCell(x, y)"
             >
+                <transition name="fade"
+                            v-on:before-enter="beforeEnter"
+                            v-on:enter="enter"
+                            v-on:after-enter="afterEnter"
+                            v-on:enter-cancelled="enterCancelled"
+
+                            v-on:before-leave="beforeLeave"
+                            v-on:leave="leave"
+                            v-on:after-leave="afterLeave"
+                            v-on:leave-cancelled="leaveCancelled">
                 <piece :piece="cell.piece"/>
-            </td>
-        </tr>
-    </table>
+                </transition>
+            </div>
+        </template>
+    </div>
 
     <div class="cemetery" :class="['cemetery-' + side]" v-for="(pieces, side) in cemeteries" :key="'cemetery-' + side">
         <div class="title">Dead {{side}}</div>
@@ -367,6 +380,30 @@ export default {
 
         return true;
     },
+      "beforeEnter":function() {
+          console.log("hook beforeEnter", arguments);
+      },
+      "enter":function() {
+          console.log("hook enter", arguments);
+      },
+      "afterEnter":function() {
+          console.log("hook afterEnter", arguments);
+      },
+      "enterCancelled":function() {
+          console.log("hook enterCancelled", arguments);
+      },
+      "beforeLeave":function() {
+          console.log("hook beforeLeave", arguments);
+      },
+      "leave":function() {
+          console.log("hook leave", arguments);
+      },
+      "afterLeave":function() {
+          console.log("hook afterLeave", arguments);
+      },
+      "leaveCancelled":function() {
+          console.log("hook leaveCancelled", arguments);
+      },
     adjacentPositions: function(position) {
         return [
             {'x': position.x - 1, 'y': position.y},
@@ -501,35 +538,75 @@ export default {
     top: 0.5em;
 }
 
-table.board {
+.board {
     margin-top: 1em;
     margin-left: auto;
     margin-right: auto;
     border: 1px solid gray;
+}
+.board .cell {
+    width: 4em;
+    height: 4em;
+    background-color: white;
+}
+
+table.board {
+    border: 1px dotted gray;
     border-collapse: collapse;
 }
 table.board td {
-    width: 4em;
-    height: 4em;
-    border: 1px dotted gray;
-    background-color: white;
 }
-.cell.restricted {
-    border: 3px dotted gray;
-    background-color: lightgray;
+
+.board:not(table) {
+    display: grid;
+    /*noinspection CssUnresolvedCustomProperty*/
+    grid-template-columns: repeat(var(--size), 1fr);
+    grid-gap: 1px;
+    background-color: #e5e5e5;
 }
-.cell.throne {
-    border-color: black;
+.board:not(table) .cell {
 }
-.cell.selected {
-    border: 1px solid green;
-}
-.cell.restricted.selected {
-    border-width: 3px;
-}
+
+
 .cell.available {
     background-color: #d1e8d1;
 }
+.cell.restricted {
+    background-color: lightgray;
+}
+
+/* Table cell styling  */
+
+table.board .cell.restricted {
+    border: 3px dotted gray;
+}
+table.board .cell.throne {
+    border-color: black;
+}
+table.board .cell.selected {
+    border: 1px solid green;
+}
+table.board .cell.restricted.selected {
+    border-width: 3px;
+}
+
+
+/* Grid cell styling */
+
+.board:not(table) .cell.restricted {
+    border: 1px dashed black;
+    margin: -1px;
+}
+.board:not(table) .cell.throne {
+    border: 1px solid black;
+    margin: -1px;
+}
+.board:not(table) .cell.selected {
+    box-shadow: inset 2px 2px 4px 0px green, inset -2px -2px 4px 0px green;
+}
+
+
+
 
 .piece {
     font-size: 3em;
@@ -544,5 +621,29 @@ table.board td {
     font-weight: bold;
     text-transform: lowercase;
     font-variant: small-caps;
+}
+
+
+.slide {
+    transition: all 1s;
+}
+.list-complete-item {
+    transition: all 1s;
+    display: inline-block;
+    margin-right: 10px;
+}
+
+.slide-enter-active, .slide-leave-active {
+    transition: all .5s;
+}
+.slide-move {
+    transition: all 1s;
+}
+
+.fade-enter-active, .fade-leave-active {
+    transition: opacity 1.5s;
+}
+.fade-enter, .fade-leave-to /* .fade-leave-active below version 2.1.8 */ {
+    opacity: 0;
 }
 </style>
