@@ -18,7 +18,7 @@
         <button class="undo-turn" title="Undo last move" @click="undoLastMove()">⮐</button>
     </div>
 
-    <div class="board" :style="{'--size': board.size}">
+    <transition-group name="animated-grid" tag="div" class="board" :style="{'--size': board.size}">
         <template v-for="(row, y) in board.rows">
             <div v-for="(cell, x) in row" :key="x + ','+  y"
                 :id="'cell:' + x + ',' + y" class="cell"
@@ -36,7 +36,7 @@
                 <piece :piece="piece"/>
             </div>
         </template>
-    </div>
+    </transition-group>
 
     <div class="cemetery cemetery-attackers">
         <div class="title">Captured attackers</div>
@@ -241,7 +241,6 @@ export default {
 </script>
 
 <style>
-
 .game-area {
     display: grid;
     grid:
@@ -353,4 +352,10 @@ table.board .cell.restricted.selected {
     text-transform: lowercase;
     font-variant: small-caps;
 }
+
+
+.animated-grid-move {
+    transition: transform 0.5s;
+}
+
 </style>
