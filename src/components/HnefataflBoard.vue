@@ -11,127 +11,60 @@
                 Turn {{Math.ceil((moves.length + 1)/2)}}
             </div>
             <div class="turn-status">
-                <span v-if="hasWon">{{moves.length % 2 == 0 ? '♔ Defender' : '♜ Attacker'}} won!</span>
+                <span v-if="hasWon">{{moves.length % 2 === 0 ? '♔ Defender' : '♜ Attacker'}} won!</span>
                 <span v-else>{{isAttackersTurn? '♜ Attacker' : '♔ Defender'}}'s turn</span>
             </div>
         </div>
         <button class="undo-turn" title="Undo last move" @click="undoLastMove()">⮐</button>
     </div>
 
-    <div class="board" :style="{'--size': size}">
-
-        <template v-for="(row, y) in grid">
+    <div class="board" :style="{'--size': board.size}">
+        <template v-for="(row, y) in board.rows">
             <div v-for="(cell, x) in row" :key="x + ','+  y"
                 :id="'cell:' + x + ',' + y" class="cell"
-                :class="{'restricted': cell.restricted, 'throne': cell.throne, 'selected': cell.selected, 'available': cell.available}"
+                :class="{'restricted': cell.restricted, 'throne': cell.throne, 'selected': isSelected({x,y}), 'available': isAvailable({x,y})}"
+                :style="{'grid-column-start': x+1, 'grid-row-start': y+1, 'grid-column-end': x+1, 'grid-row-end': y+1}"
                 @click.exact="handleClick(x, y)" @click.ctrl="clearCell(x, y)"
+            ></div>
+        </template>
+        <template>
+            <div v-for="(piece, i) in board.pieces" v-if="piece.position" :key="'piece:' + i" :id="'piece:' + i"
+                 :style="{'grid-column-start': piece.position.x+1, 'grid-row-start': piece.position.y+1, 'grid-column-end': piece.position.x+1, 'grid-row-end': piece.position.y+1}"
+                 @click.exact="handleClick(piece.position.x, piece.position.y)"
+                 @click.ctrl="clearCell(piece.position.x, piece.position.y)"
             >
-                <piece :piece="cell.piece"/>
+                <piece :piece="piece"/>
             </div>
         </template>
     </div>
 
-    <div class="cemetery" :class="['cemetery-' + side]" v-for="(pieces, side) in cemeteries" :key="'cemetery-' + side">
-        <div class="title">Dead {{side}}</div>
+    <div class="cemetery cemetery-attackers">
+        <div class="title">Captured attackers</div>
 
-        <piece v-for="piece in pieces" :key="piece.key" :piece="piece"/>
+        <piece v-for="piece in capturedAttackers" :piece="piece"/>
+    </div>
+    <div class="cemetery cemetery-defenders">
+        <div class="title">Captured defenders</div>
+
+        <piece v-for="piece in capturedDefenders" :piece="piece"/>
     </div>
 </div>
 </template>
 
 <script>
-import Vue from 'vue';
 import Piece from './Piece.vue'
 import ai from '../ai/minmax.js'
+import Board, {posEq} from "@/components/Board";
 
-function xFrom(letter) {
-    return letter.toLowerCase().charCodeAt(0) - 97; //charCode('a') == 97
-}
-function yFrom(number) {
-    return parseInt(number, 10) - 1;
-}
-function position(address) {
-    if (!address) return null;
-    let x = xFrom(address.charAt(0));
-    let y = yFrom(address.substring(1));
-    return {x, y};
-}
-
-function path(from, to) {
-    let dx = to.x - from.x;
-    let dy = to.y - from.y;
-
-    let xStep = clamp(-1, dx, 1);
-    let yStep = clamp(-1, dy, 1);
-
-
-    let steps = [];
-    let stepCount = Math.max(Math.abs(dx), Math.abs(dy))
-    for (let i = 1; i <= stepCount; i++) {
-        steps.push({
-            'x': from.x + i * xStep,
-            'y': from.y + i * yStep
-        });
-    }
-
-    return steps;
-}
-function clamp(min, value, max) {
-    return Math.max(min, Math.min(value, max));
-}
-
-function piecesArray(king, defenders, attackers) {
-    let pieces = [];
-
-    if (king) {
-        pieces.push({
-            'position': position(king),
-            'name': 'king'
-        });
-    }
-
-    if (defenders) {
-        for (let p of defenders) {
-            pieces.push({
-               'position': position(p),
-               'name': 'defender'
-            });
-        }
-    }
-
-    if (attackers) {
-        for (let p of attackers) {
-            pieces.push({
-               'position': position(p),
-               'name': 'attacker'
-            });
-        }
-    }
-
-    return pieces;
-}
 
 export default {
   name: 'HnefataflBoard',
   components: {Piece},
   props: {
-    size: {
-        type: Number,
-        default: 11
-    },
-    pieces: {
-        type: Array,
-        default: function() {
-            return piecesArray(
-               'f6',
-               ['d6', 'e5', 'e6', 'e7', 'f4', 'f5', 'f7', 'f8', 'g5', 'g6', 'g7', 'h6'],
-               [
-                 'a4', 'a5', 'a6', 'a7', 'a8', 'b6',
-                 'd1', 'e1', 'f1', 'g1', 'h1', 'f2',
-                 'k4', 'k5', 'k6', 'k7', 'k8', 'j6',
-                 'd11', 'e11', 'f11', 'g11', 'h11', 'f10'
-               ]
-            )
+    board: {
+        type: Board,
+        default: function () {
+            return new Board().withPieces();
         }
     },
     moves: {
@@ -145,71 +78,26 @@ export default {
     }
   },
   computed: {
-    grid: function() {
-        let grid = [];
-        for (let y=0; y<this.size; y++) {
-            let row = [];
-            for (let x=0; x<this.size; x++) {
-                let cell = Vue.observable({'piece': undefined, 'selected': undefined, 'available': undefined});
-
-                cell.restricted = (x == 0 || x == this.size-1) && (y == 0 || y == this.size-1);
-                if (x == Math.floor(this.size/2) && y == Math.floor(this.size/2)) {
-                    cell.restricted = true;
-                    cell.throne = true;
-                }
-
-                row.push(cell);
-            }
-            grid.push(row);
-        }
-
-        // Apply the pieces on the grid
-        for (let i=0; i<this.pieces.length; i++) {
-            let piece = this.pieces[i];
-            if (!piece.position) continue;
-            grid[piece.position.y][piece.position.x].piece = {
-                'name': piece.name,
-                'key': 'piece#' + i
-            };
-        }
-
-        return grid;
-    },
-    cemeteries: function() {
-        let defenders = [];
-        let attackers = [];
-
-        for (let i=0; i<this.pieces.length; i++) {
-            let piece = this.pieces[i];
+    captured: function() {
+        let captured = [];
+        for (let i=0; i<this.board.pieces.length; i++) {
+            let piece = this.board.pieces[i];
             if (piece.position) continue;
-
-            (piece.name == 'attacker' ? attackers : defenders).push({
-                'name': piece.name,
-                'key': 'piece#' + i
-            });
+            captured.push(piece);
         }
-
-        return {defenders, attackers};
+        return captured;
+    },
+    capturedDefenders: function() {
+        return this.captured.filter(piece => piece.name !== 'attacker');
+    },
+    capturedAttackers: function() {
+        return this.captured.filter(piece => piece.name === 'attacker');
     },
     isAttackersTurn: function() {
-        return this.moves.length % 2 == 0;
+        return this.moves.length % 2 === 0;
     },
     availableMoves: function() {
-        let pos = this.selected;
-        if (!pos) return [];
-
-        let moves = [
-            this.freePath(pos, {'x': 0, 'y': pos.y}),
-            this.freePath(pos, {'x': this.size - 1, 'y': pos.y}),
-            this.freePath(pos, {'x': pos.x, 'y': 0}),
-            this.freePath(pos, {'x': pos.x, 'y': this.size - 1})
-        ].flat();
-
-        if (this.pieceNameAt(pos) != 'king') {
-            moves = moves.filter(p => !this.cellAt(p).restricted);
-        }
-
-        return moves;
+        return this.board.availableMoves(this.selected);
     },
     hasWon: function() {
         let lastMove = this.moves[this.moves.length - 1];
@@ -219,17 +107,17 @@ export default {
         }
 
         // if king escaped
-        if (lastMove.piece.name == 'king') {
-            let cell = this.cellAt(lastMove.to);
+        if (lastMove.piece.name === 'king') {
+            let cell = this.board.cellAt(lastMove.to);
             if (cell.restricted && !cell.throne) {
                 return true;
             }
         }
 
         // if king is captured
-        let adjacent = this.adjacentPositions(lastMove.to)
+        let adjacent = this.board.adjacentPositions(lastMove.to)
         for (let p of adjacent) {
-            if (this.pieceNameAt(p) == 'king') {
+            if (this.board.pieceNameAt(p) === 'king') {
                 if (this.checkKingCapture(p)) {
                     return true;
                 }
@@ -250,30 +138,12 @@ export default {
 
         if (this.selected && this.move(this.selected, pos)) {
             this.deselect(this.selected);
-            return;
         }
-    },
-    cellAt: function(pos) {
-        return this.isValidPosition(pos) && this.grid[pos.y][pos.x];
-    },
-    pieceNameAt: function(pos) {
-        let cell = this.cellAt(pos);
-        return cell && cell.piece && cell.piece.name;
-    },
-    freePath: function(from, to) {
-        let res = [];
-        for (let p of path(from, to)) {
-            if (this.cellAt(p).piece) {
-                break;
-            }
-            res.push(p);
-        }
-        return res;
     },
     select: function(pos) {
-        let cell = this.cellAt(pos);
+        let piece = this.board.pieceAt(pos);
 
-        if (!cell.piece) {
+        if (!piece) {
             return;
         }
 
@@ -281,8 +151,8 @@ export default {
             return;
         }
 
-        let isAttacker = (cell.piece && cell.piece.name) == 'attacker';
-        if (isAttacker != this.isAttackersTurn) {
+        let isAttacker = (piece.name === 'attacker');
+        if (isAttacker !== this.isAttackersTurn) {
             return;
         }
 
@@ -291,163 +161,50 @@ export default {
             this.deselect(this.selected);
         }
 
-        cell.selected = true;
         this.selected = pos;
 
-        // Mark available
-        for (let dest of this.availableMoves) {
-            this.cellAt(dest).available = true;
-        }
-
-        return cell;
+        return piece;
     },
     deselect: function(pos) {
         if (!pos) return;
 
-        // Clear 'available' markers
-        for (let row of this.grid) {
-            for (let cell of row) {
-                cell.available = undefined;
-            }
-        }
-
-        let cell = this.cellAt(pos);
-
-        cell.selected = false;
+        let prev = this.selected;
         this.selected = undefined;
 
-        return cell;
+        return prev;
+    },
+    isSelected: function(pos) {
+        return this.selected && posEq(this.selected, pos);
+    },
+    isAvailable: function(pos) {
+        return !!this.availableMoves.find(p => posEq(pos, p));
     },
     move: function(from, to) {
-        if (!this.isValidMove(from, to)) {
+        let result = this.board.move(from, to);
+        if (!result) {
             return false;
         }
-
-        // Actually move the piece
-        let cellFrom = this.cellAt(from);
-        let cellTo = this.cellAt(to);
-
-        let piece = cellFrom.piece;
-        cellTo.piece = piece;
-        cellFrom.piece = undefined;
-
-        // Find captured pieces
-        let captured = this.getCapturedPieces(to);
-        for (let capturedPosition of captured) {
-            this.capture(capturedPosition);
-        }
-
-        this.moves.push({
-            from, to, piece, captured
-        });
-
+        this.moves.push(result);
         return true;
-    },
-    isValidMove: function(from, to) {
-        // only move in lines, not diagonally
-        if (from.x != to.x && from.y != to.y) {
-            return false;
-        }
-
-        let cellTo = this.cellAt(to);
-        let cellFrom = this.cellAt(from);
-
-        // not allowed to go on top of another piece
-        if (cellTo.piece) {
-            return false;
-        }
-
-        // only the king is allowed on restricted spaces
-        if (cellTo.restricted && (cellFrom.piece && cellFrom.piece.name) != 'king') {
-            return false;
-        }
-
-        // cannot jump over pieces
-        for (let p of path(from, to)) {
-            if (this.cellAt(p).piece) {
-                return false;
-            }
-        }
-
-        return true;
-    },
-    adjacentPositions: function(position) {
-        return [
-            {'x': position.x - 1, 'y': position.y},
-            {'x': position.x + 1, 'y': position.y},
-            {'x': position.x, 'y': position.y - 1},
-            {'x': position.x, 'y': position.y + 1}
-        ].filter(p => this.isValidPosition(p));
-    },
-    isValidPosition: function(position) {
-        return (position.x >= 0 && position.y >= 0 && position.x < this.size && position.y < this.size);
-    },
-    getCapturedPieces: function(aggressorPosition){
-        let result = [];
-        for (let adjacent of this.adjacentPositions(aggressorPosition)){
-            let nextOneOver = {
-                'x': aggressorPosition.x + 2 * clamp(-1, adjacent.x - aggressorPosition.x, 1),
-                'y': aggressorPosition.y + 2 * clamp(-1, adjacent.y - aggressorPosition.y, 1)
-            };
-            if (this.isHostile(adjacent, aggressorPosition) && this.isHostile(adjacent, nextOneOver)) {
-                result.push(adjacent);
-            }
-        }
-
-        return result;
-    },
-    isHostile: function(targetPosition, otherPosition) {
-        let target = this.pieceNameAt(targetPosition);
-        let other = this.pieceNameAt(otherPosition);
-
-        if (!target) {
-            return false;
-        }
-
-        if (target == 'king') return false;
-        if (other == 'king') other = 'defender';
-
-        let otherCell = this.cellAt(otherPosition);
-        if (!other && otherCell && otherCell.restricted) {
-            other = 'hostile';
-        }
-
-        return other && target != other;
-    },
-    capture: function(position) {
-        let cell = this.cellAt(position);
-        let piece = cell.piece;
-
-        let isAttacker = piece.name == 'attacker';
-        let cemetery = this.cemeteries[isAttacker? 'attackers' : 'defenders'];
-        cemetery.push(piece);
-        cell.piece = undefined;
     },
     checkKingCapture: function(kingPosition) {
-        let adjacentOfKing = this.adjacentPositions(kingPosition);
+        let adjacentOfKing = this.board.adjacentPositions(kingPosition);
 
         // if king is at an edge
         if (adjacentOfKing.length < 4) {
             //if there are other defenders, the king cannot be captured at the edges
-            for (let row of this.grid) {
-                for (let cell of row) {
-                    if (cell.piece && cell.piece.name == 'defender') {
-                        return false;
-                    }
-                }
+            if (this.board.pieces.some(p => p.name === 'defender' && p.position)) {
+                return false;
             }
         }
 
-        if (adjacentOfKing.every(pp => this.pieceNameAt(pp) == 'attacker' || this.cellAt(pp).hostile)) {
-            return true;
-        }
-
-        return false;
+        return !!adjacentOfKing.every(pp =>
+            this.board.pieceNameAt(pp) === 'attacker' || this.board.cellAt(pp).hostile);
     },
     clearCell: function(x,y) {
         this.selected && this.deselect(this.selected);
 
-        this.capture({x, y});
+        this.board.capture({x, y});
     },
     undoLastMove: function() {
         this.selected && this.deselect(this.selected);
@@ -456,14 +213,20 @@ export default {
         if (!lastMove) return;
 
         // move piece back
-        this.cellAt(lastMove.to).piece = undefined;
-        this.cellAt(lastMove.from).piece = lastMove.piece;
+        this.board.pieceAt(lastMove.to).position = lastMove.from;
 
         // restore the captured pieces
-        let wasAttacker = lastMove.piece.name == 'attacker';
-        let cemetery = this.cemeteries[wasAttacker ? 'defenders' : 'attackers'];
-        for (let position of (lastMove.captured || [])) {
-            this.cellAt(position).piece = cemetery.pop();
+        let wasAttacker = lastMove.piece.name === 'attacker';
+        let capturedPieces = []; //find N dead pieces, as many as lastMove.captured
+        for (let p of this.board.pieces) {
+            //dead and 'not same as captor'
+            if (!p.position && (wasAttacker !== (p.name === 'attacker'))) {
+                capturedPieces.push(p);
+            }
+            if (lastMove.captured.length === capturedPieces.length) break;
+        }
+        for (let i = 0; i < capturedPieces.length; i++) {
+            capturedPieces[i].position = lastMove.captured[i];
         }
 
         return lastMove;
@@ -541,8 +304,6 @@ table.board td {
     grid-gap: 1px;
     background-color: #e5e5e5;
 }
-.board:not(table) .cell {
-}
 
 
 .cell.available {
@@ -579,12 +340,7 @@ table.board .cell.restricted.selected {
     margin: -1px;
 }
 .board:not(table) .cell.selected {
-    box-shadow: inset 2px 2px 4px 0px green, inset -2px -2px 4px 0px green;
-}
-
-
-.piece {
-    font-size: 3em;
+    box-shadow: inset 2px 2px 4px 0 green, inset -2px -2px 4px 0 green;
 }
 
 .cemetery {
