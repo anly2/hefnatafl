@@ -5,6 +5,7 @@
 <!--TODO: animate "warning" for invalid actions -->
 <div class="game-area">
     <div class="header">
+        <button class="button-ai-suggest" @click="aiSuggest()">Suggest</button>
         <div class="game-status" :class="{won: hasWon}">
             <div class="turn-counter">
                 Turn {{Math.ceil((moves.length + 1)/2)}}
@@ -41,6 +42,7 @@
 <script>
 import Vue from 'vue';
 import Piece from './Piece.vue'
+import ai from '../ai/minmax.js'
 
 function xFrom(letter) {
     return letter.toLowerCase().charCodeAt(0) - 97; //charCode('a') == 97
@@ -465,6 +467,11 @@ export default {
         }
 
         return lastMove;
+    },
+    aiSuggest: function() {
+        let {from, to} = ai.next(this.grid, this.moves.length % 2);
+        this.cellAt(from).selected = true;
+        this.cellAt(to).available = true;
     }
   }
 }
@@ -484,6 +491,11 @@ export default {
 .game-area > .cemetery-defenders { grid-area: cemetery-defenders; }
 .game-area > .cemetery-attackers { grid-area: cemetery-attackers; }
 
+.game-area > .header .button-ai-suggest {
+    position: absolute;
+    left: 1em;
+    padding: 0.25em 0.5em;
+}
 
 .game-area > .header {
     display: flex;
